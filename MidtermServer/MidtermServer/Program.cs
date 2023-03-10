@@ -25,9 +25,8 @@ namespace MidtermServer
             Console.WriteLine("Starting the server....");
 
             tcpSock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            udpSock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Udp);
 
-            IPAddress ip = IPAddress.Parse("172.31.89.68");
+            IPAddress ip = IPAddress.Parse("127.0.0.1");
 
             tcpSock.Bind(new IPEndPoint(ip, 8888));
 

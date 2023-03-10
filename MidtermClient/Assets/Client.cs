@@ -13,32 +13,50 @@ using TMPro;
 public class Client : MonoBehaviour
 {
     [SerializeField] TMP_Text validationText;
+    [SerializeField] GameObject joiningCanvas;
+    [SerializeField] GameObject chatCanvas;
 
     public GameObject myCube;
-    private static Socket clientSoc;
+    private Socket socTcp;
+    private Socket socUdp;
 
-    private static byte[] bpos;
-    private static float[] pos;
+    private byte[] bpos;
+    private float[] pos;
+
+    private byte[] outBuffer = new byte[512];
+
+    private IPEndPoint remoteEP;
 
     Vector3 prevPos = new Vector3(0f, 0f, 0f);
 
     float currentTimer = 0f;
 
-    IPAddress ip = IPAddress.Parse("0.0.0.0");
+    private IPAddress ip = IPAddress.Parse("0.0.0.0");
 
-    public static void StartClient()
+    public void StartClient()
     {
         try
         {
-            clientSoc = new Socket(AddressFamily.InterNetwork,
+            socTcp = new Socket(AddressFamily.InterNetwork,
                 SocketType.Stream, ProtocolType.Tcp);
 
-            clientSoc.Connect(IPAddress.Parse("127.0.0.1"), 8888);
-            Debug.Log("Connected to server");
+            validationText.text = "Valid IP! Connecting...";
+
+            socTcp.Connect(ip, 8888);
+
+            myCube.GetComponent<cube>().SetMoveable(true);
+            joiningCanvas.SetActive(false);
+            chatCanvas.SetActive(true);
+
+            remoteEP = new IPEndPoint(ip, 8889);
+
+            socUdp = new Socket(AddressFamily.InterNetwork,
+                SocketType.Dgram, ProtocolType.Udp);
 
         } catch (Exception e)
         {
             Debug.Log(e.ToString());
+            validationText.text = "Invalid IP!";
         }
     }
 
@@ -46,8 +64,8 @@ public class Client : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        myCube = gameObject;
-        StartClient();
+        //myCube = gameObject;
+        //StartClient();
     }
 
     // Update is called once per frame
@@ -70,11 +88,18 @@ public class Client : MonoBehaviour
                 "   Y: " + myCube.transform.position.y +
                 "   Z: " + myCube.transform.position.z);
 
-            clientSoc.Send(bpos);
+            socTcp.Send(bpos);
         }
 
         prevPos = myCube.transform.position;
 
+    }
+
+    public void SendMsg(string msg)
+    {
+        outBuffer = Encoding.ASCII.GetBytes(msg);
+
+        socUdp.SendTo(outBuffer, remoteEP);
     }
 
     public void SetIP(string inIP)
@@ -82,15 +107,6 @@ public class Client : MonoBehaviour
         Debug.Log("Here! IP = " + inIP);
         ip = IPAddress.Parse(inIP);
 
-        try
-        {
-            clientSoc.Connect(IPAddress.Parse("127.0.0.1"), 8888);
-        }
-
-        catch (Exception e)
-        {
-            Debug.Log(e.ToString());
-        }
-
+        StartClient();
     }
 }

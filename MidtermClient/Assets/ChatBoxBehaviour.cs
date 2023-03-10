@@ -9,7 +9,7 @@ public class ChatBoxBehaviour : MonoBehaviour
     [SerializeField] TMP_Text showHideText;
     [SerializeField] Transform messageParentPanel;
     [SerializeField] GameObject newMessagePrefab;
-
+    [SerializeField] Client userClient;
 
     bool showingChat = false;
 
@@ -54,6 +54,8 @@ public class ChatBoxBehaviour : MonoBehaviour
             clone.transform.SetParent(messageParentPanel);
             clone.transform.SetSiblingIndex(messageParentPanel.childCount - 2);
             clone.GetComponent<MessageBehaviour>().ShowMessage(message);
+
+            userClient.SendMsg(message);
         }
     }
 
