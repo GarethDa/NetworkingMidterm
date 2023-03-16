@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using System.Threading;
 using System.Net;
 using System.Net.Sockets;
 
@@ -11,8 +8,10 @@ namespace MidtermServer
 {
     class Program
     {
-        Socket server;
-        byte[] buffer = new byte[512];
+        Socket TCPserver;
+        Socket UDPserver;
+        byte[] TCPbuffer = new byte[512];
+        byte[] UDPbuffer = new byte[512];
         float[] pos;
 
         List<Socket> connectedClients = new List<Socket>();
@@ -23,46 +22,80 @@ namespace MidtermServer
             IPAddress ip = IPAddress.Parse("127.0.0.1");
             IPEndPoint serverEP = new IPEndPoint(ip, 8888);
 
-            server = new Socket(ip.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
-            server.Bind(serverEP);
+            TCPserver = new Socket(ip.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            TCPserver.Bind(serverEP);
             //Start listening for connection requests.
-            server.Listen(8);
+            TCPserver.Listen(8);
+
+            UDPserver = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            UDPserver.Bind(serverEP);
 
             // Accept connections 
             Console.WriteLine("Waiting for connections...");
 
-            server.BeginAccept(new AsyncCallback(AcceptCallback), null);
+            TCPserver.BeginAccept(new AsyncCallback(AcceptTCPCallback), null);
+            UDPserver.BeginReceive(UDPbuffer, 0, UDPbuffer.Length, 0, ReceiveUDPCallback, 0);
         }
 
-        void AcceptCallback(IAsyncResult result)
+        void AcceptTCPCallback(IAsyncResult result)
         {
-            Socket client = server.EndAccept(result);
+            Socket client = TCPserver.EndAccept(result);
             connectedClients.Add(client);
             Console.WriteLine("Client connected! IP: {0}", client.RemoteEndPoint.ToString());
 
-            client.BeginReceive(buffer, 0, buffer.Length, 0, new AsyncCallback(ReceiveCallback), client);
+            client.BeginReceive(TCPbuffer, 0, TCPbuffer.Length, 0, new AsyncCallback(ReceiveTCPCallback), client);
         }
 
-        void ReceiveCallback(IAsyncResult result)
+        void ReceiveTCPCallback(IAsyncResult result)
         {
             Socket client = (Socket)result.AsyncState;
             int rec = client.EndReceive(result);
 
             byte[] data = new byte[rec];
-            Array.Copy(buffer, data, rec);
+            Array.Copy(TCPbuffer, data, rec);
             string msg = Encoding.ASCII.GetString(data);
 
-            if(msg == "quit")
+            if (msg.Substring(0, 5) == "msg: ")
+            {
+                string txtChat = msg.Substring(5);
+                Console.WriteLine("Received: {0}", txtChat);
+
+                byte[] send = Encoding.UTF8.GetBytes(txtChat);
+
+                foreach (Socket connectedClient in connectedClients)
+                {
+                    if (connectedClient == client)
+                    {
+                        continue;
+                    }
+                    connectedClient.BeginSend(send, 0, send.Length, 0, new AsyncCallback(SendTCPCallback), connectedClient);
+                }
+            }
+            else if (msg == "quit")
             {
                 connectedClients.Remove(client);
                 client.Close();
                 return;
             }
+            else
+            {
+                Console.WriteLine("Client {0} sent unknown data", client.RemoteEndPoint.ToString());
+            }
 
+            client.BeginReceive(TCPbuffer, 0, TCPbuffer.Length, 0, new AsyncCallback(ReceiveTCPCallback), client);
+        }
+
+        void ReceiveUDPCallback(IAsyncResult result)
+        {
+            EndPoint ip = null;
+            int rec = UDPserver.EndReceiveFrom(result, ref ip);
+
+            byte[] data = new byte[rec];
+            Array.Copy(UDPbuffer, data, rec);
+            
             pos = new float[rec / 4];
-            Buffer.BlockCopy(buffer, 0, pos, 0, rec);
+            Buffer.BlockCopy(UDPbuffer, 0, pos, 0, rec);
 
-            //client.BeginSend(buffer, 0, buffer.Length, 0, new AsyncCallback(SendCallback), client);
             Console.WriteLine("Received X:" + pos[0] + " Y:" + pos[1] + " Z:" + pos[2]);
 
             byte[] send = new byte[pos.Length * sizeof(float)];
@@ -70,20 +103,26 @@ namespace MidtermServer
 
             foreach (Socket connectedClient in connectedClients)
             {
-                if (connectedClient == client)
+                if (connectedClient.RemoteEndPoint == ip)
                 {
                     continue;
                 }
-                connectedClient.BeginSend(send, 0, send.Length, 0, new AsyncCallback(SendCallback), connectedClient);
+                UDPserver.BeginSendTo(send, 0, send.Length, 0, connectedClient.RemoteEndPoint, SendUDPCallback, 0);
             }
 
-            client.BeginReceive(buffer, 0, buffer.Length, 0, new AsyncCallback(ReceiveCallback), client);
+            UDPserver.BeginReceive(UDPbuffer, 0, UDPbuffer.Length, 0, ReceiveUDPCallback, 0);
         }
 
-        private static void SendCallback(IAsyncResult result)
+        private static void SendTCPCallback(IAsyncResult result)
         {
             Socket socket = (Socket)result.AsyncState;
             socket.EndSend(result);
+        }
+
+        private static void SendUDPCallback(IAsyncResult result)
+        {
+            Socket socket = (Socket)result.AsyncState;
+            socket.EndSendTo(result);
         }
 
         public int Main(String[] args)
