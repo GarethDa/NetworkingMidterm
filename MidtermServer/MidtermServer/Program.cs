@@ -8,19 +8,20 @@ namespace MidtermServer
 {
     class Program
     {
-        Socket TCPserver;
-        Socket UDPserver;
-        byte[] TCPbuffer = new byte[512];
-        byte[] UDPbuffer = new byte[512];
-        float[] pos;
+        static Socket TCPserver;
+        static Socket UDPserver;
+        static byte[] TCPbuffer = new byte[512];
+        static byte[] UDPbuffer = new byte[512];
+        static float[] pos;
 
-        List<Socket> connectedClients = new List<Socket>();
+        static List<Socket> connectedClients = new List<Socket>();
 
-        void StartServer() //Initializes the server to the localhost address and begins waiting for connections.
+        static void StartServer() //Initializes the server to the localhost address and begins waiting for connections.
         {
             //Setup our server  
             IPAddress ip = IPAddress.Parse("127.0.0.1");
             IPEndPoint serverEP = new IPEndPoint(ip, 8888);
+            IPEndPoint serverEPUdp = new IPEndPoint(ip, 8889);
 
             TCPserver = new Socket(ip.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             TCPserver.Bind(serverEP);
@@ -28,7 +29,7 @@ namespace MidtermServer
             TCPserver.Listen(8);
 
             UDPserver = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            UDPserver.Bind(serverEP);
+            UDPserver.Bind(serverEPUdp);
 
             // Accept connections 
             Console.WriteLine("Waiting for connections...");
@@ -37,16 +38,17 @@ namespace MidtermServer
             UDPserver.BeginReceive(UDPbuffer, 0, UDPbuffer.Length, 0, ReceiveUDPCallback, 0);
         }
 
-        void AcceptTCPCallback(IAsyncResult result)
+        static void AcceptTCPCallback(IAsyncResult result)
         {
             Socket client = TCPserver.EndAccept(result);
             connectedClients.Add(client);
             Console.WriteLine("Client connected! IP: {0}", client.RemoteEndPoint.ToString());
 
             client.BeginReceive(TCPbuffer, 0, TCPbuffer.Length, 0, new AsyncCallback(ReceiveTCPCallback), client);
+            TCPserver.BeginAccept(new AsyncCallback(AcceptTCPCallback), null);
         }
 
-        void ReceiveTCPCallback(IAsyncResult result)
+        static void ReceiveTCPCallback(IAsyncResult result)
         {
             Socket client = (Socket)result.AsyncState;
             int rec = client.EndReceive(result);
@@ -85,31 +87,26 @@ namespace MidtermServer
             client.BeginReceive(TCPbuffer, 0, TCPbuffer.Length, 0, new AsyncCallback(ReceiveTCPCallback), client);
         }
 
-        void ReceiveUDPCallback(IAsyncResult result)
+        static void ReceiveUDPCallback(IAsyncResult result)
         {
-            EndPoint ip = new IPEndPoint(IPAddress.Any, 0);
-            int rec = UDPserver.EndReceiveFrom(result, ref ip);
+            int rec = UDPserver.EndReceive(result);
 
             byte[] data = new byte[rec];
             Array.Copy(UDPbuffer, data, rec);
             
             pos = new float[rec / 4];
-            Buffer.BlockCopy(UDPbuffer, 0, pos, 0, rec);
+            Buffer.BlockCopy(data, 0, pos, 0, rec);
 
             Console.WriteLine("Received X:" + pos[0] + " Y:" + pos[1] + " Z:" + pos[2]);
 
             byte[] send = new byte[pos.Length * sizeof(float)];
             Buffer.BlockCopy(pos, 0, send, 0, send.Length);
-
+            
             foreach (Socket connectedClient in connectedClients)
             {
-                if (connectedClient.RemoteEndPoint == ip)
-                {
-                    continue;
-                }
                 UDPserver.BeginSendTo(send, 0, send.Length, 0, connectedClient.RemoteEndPoint, SendUDPCallback, connectedClient.RemoteEndPoint);
             }
-
+            
             UDPserver.BeginReceive(UDPbuffer, 0, UDPbuffer.Length, 0, ReceiveUDPCallback, 0);
         }
 
@@ -125,7 +122,7 @@ namespace MidtermServer
             socket.EndSendTo(result);
         }
 
-        public int Main(String[] args)
+        public static int Main(String[] args)
         {
             StartServer();
             Console.ReadKey();
