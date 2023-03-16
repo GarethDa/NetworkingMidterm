@@ -87,7 +87,7 @@ namespace MidtermServer
 
         void ReceiveUDPCallback(IAsyncResult result)
         {
-            EndPoint ip = null;
+            EndPoint ip = new IPEndPoint(IPAddress.Any, 0);
             int rec = UDPserver.EndReceiveFrom(result, ref ip);
 
             byte[] data = new byte[rec];
@@ -107,7 +107,7 @@ namespace MidtermServer
                 {
                     continue;
                 }
-                UDPserver.BeginSendTo(send, 0, send.Length, 0, connectedClient.RemoteEndPoint, SendUDPCallback, 0);
+                UDPserver.BeginSendTo(send, 0, send.Length, 0, connectedClient.RemoteEndPoint, SendUDPCallback, connectedClient.RemoteEndPoint);
             }
 
             UDPserver.BeginReceive(UDPbuffer, 0, UDPbuffer.Length, 0, ReceiveUDPCallback, 0);
