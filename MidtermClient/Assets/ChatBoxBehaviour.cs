@@ -1,7 +1,9 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System;
 
 public class ChatBoxBehaviour : MonoBehaviour
 {
@@ -11,6 +13,8 @@ public class ChatBoxBehaviour : MonoBehaviour
     [SerializeField] GameObject newMessagePrefab;
     [SerializeField] Client userClient;
 
+    Queue<string> messageQueue = new Queue<string>();
+
     bool showingChat = false;
 
     string message = "";
@@ -18,6 +22,16 @@ public class ChatBoxBehaviour : MonoBehaviour
     private void Start()
     {
         ToggleChat();
+    }
+
+    private void Update()
+    {
+        if (messageQueue.Count > 0)
+        {
+            SetMessage(messageQueue.Dequeue());
+
+            ShowReceivedMessage();
+        }
     }
 
     public void ToggleChat ()
@@ -41,7 +55,7 @@ public class ChatBoxBehaviour : MonoBehaviour
 
     public void SetMessage(string message)
     {
-        Debug.Log(message);
+        //Debug.Log(message);
 
         this.message = message;
     }
@@ -50,13 +64,35 @@ public class ChatBoxBehaviour : MonoBehaviour
     {
         if (message != "")
         {
-            GameObject clone = (GameObject)Instantiate(newMessagePrefab);
+            GameObject clone = Instantiate(newMessagePrefab);
             clone.transform.SetParent(messageParentPanel);
             clone.transform.SetSiblingIndex(messageParentPanel.childCount - 2);
             clone.GetComponent<MessageBehaviour>().ShowMessage(message);
 
-            userClient.SendMsg(message);
+            userClient.SendMsg("msg: " + message);
         }
+
+        else
+            Debug.Log("Message is blank");
     }
 
+    public void ShowReceivedMessage()
+    {
+        if (message != "")
+        {
+            GameObject clone = Instantiate(newMessagePrefab);
+            clone.transform.SetParent(messageParentPanel);
+            clone.transform.SetSiblingIndex(messageParentPanel.childCount - 2);
+            clone.GetComponent<MessageBehaviour>().ShowMessage(message);
+        }
+
+        else
+            Debug.Log("Message is blank");
+    }
+
+    public void QueueMessage(string msg)
+    {
+        Debug.Log("queued message");
+        messageQueue.Enqueue(msg);
+    }
 }

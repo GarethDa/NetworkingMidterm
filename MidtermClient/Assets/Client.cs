@@ -15,6 +15,9 @@ public class Client : MonoBehaviour
     [SerializeField] TMP_Text validationText;
     [SerializeField] GameObject joiningCanvas;
     [SerializeField] GameObject chatCanvas;
+    [SerializeField] GameObject p2Cube;
+
+    ChatBoxBehaviour chatBehaviour;
 
     public GameObject myCube;
     private Socket socTcp;
@@ -23,7 +26,11 @@ public class Client : MonoBehaviour
     private byte[] bpos;
     private float[] pos;
 
-    private byte[] outBuffer = new byte[512];
+    private byte[] outBufferTcp = new byte[512];
+    private byte[] inBufferTcp = new byte[512];
+
+    private byte[] outBufferUdp = new byte[512];
+    private byte[] inBufferUdp = new byte[512];
 
     private IPEndPoint remoteEP;
 
@@ -53,6 +60,9 @@ public class Client : MonoBehaviour
             socUdp = new Socket(AddressFamily.InterNetwork,
                 SocketType.Dgram, ProtocolType.Udp);
 
+            socTcp.BeginReceive(inBufferTcp, 0, inBufferTcp.Length, 0, new AsyncCallback(ReceiveCallback), socTcp);
+            socUdp.BeginReceive(inBufferUdp, 0, inBufferUdp.Length, 0, new AsyncCallback(ReceiveCallbackUdp), socUdp);
+
         } catch (Exception e)
         {
             Debug.Log(e.ToString());
@@ -66,6 +76,8 @@ public class Client : MonoBehaviour
     {
         //myCube = gameObject;
         //StartClient();
+
+        chatBehaviour = chatCanvas.GetComponentInChildren<ChatBoxBehaviour>();
     }
 
     // Update is called once per frame
@@ -88,18 +100,52 @@ public class Client : MonoBehaviour
                 "   Y: " + myCube.transform.position.y +
                 "   Z: " + myCube.transform.position.z);
 
-            socTcp.Send(bpos);
+            socUdp.SendTo(bpos, remoteEP);
         }
 
         prevPos = myCube.transform.position;
 
     }
 
+    private void ReceiveCallback(IAsyncResult result)
+    {
+        Socket socket = (Socket)result.AsyncState;
+
+        int rec = socket.EndReceive(result);
+
+        byte[] data = new byte[rec];
+
+        Array.Copy(inBufferTcp, data, rec);
+
+        string msg = Encoding.ASCII.GetString(data);
+
+        Debug.Log("Message received: " + msg);
+
+        chatBehaviour.QueueMessage(msg);
+
+        socTcp.BeginReceive(inBufferTcp, 0, inBufferTcp.Length, 0, new AsyncCallback(ReceiveCallback), socTcp);
+    }
+    private void ReceiveCallbackUdp(IAsyncResult result)
+    {
+        Socket socket = (Socket)result.AsyncState;
+
+        int rec = socket.EndReceive(result);
+
+        pos = new float[rec / 4];
+        Buffer.BlockCopy(inBufferUdp, 0, pos, 0, rec);
+
+        Debug.Log("Recv (x, y, z): (" + pos[0] + ", " + pos[1] + ", " + pos[2] + ")");
+
+        p2Cube.transform.position = new Vector3(pos[0], pos[1], pos[2]);
+
+        socUdp.BeginReceive(inBufferUdp, 0, inBufferUdp.Length, 0, new AsyncCallback(ReceiveCallback), socUdp);
+    }
+
     public void SendMsg(string msg)
     {
-        outBuffer = Encoding.ASCII.GetBytes(msg);
+        outBufferTcp = Encoding.ASCII.GetBytes(msg);
 
-        socUdp.SendTo(outBuffer, remoteEP);
+        socTcp.Send(outBufferTcp);
     }
 
     public void SetIP(string inIP)
@@ -109,4 +155,6 @@ public class Client : MonoBehaviour
 
         StartClient();
     }
+
+
 }
