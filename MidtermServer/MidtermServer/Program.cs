@@ -15,6 +15,7 @@ namespace MidtermServer
         static float[] pos;
 
         static List<Socket> connectedClients = new List<Socket>();
+        static List<IPEndPoint> UDPEndPoints = new List<IPEndPoint>();
 
         static void StartServer() //Initializes the server to the localhost address and begins waiting for connections.
         {
@@ -57,12 +58,32 @@ namespace MidtermServer
             Array.Copy(TCPbuffer, data, rec);
             string msg = Encoding.ASCII.GetString(data);
 
-            if (msg.Substring(0, 5) == "msg: ")
+            if(msg.Substring(0, 5) == "UDP: ") //Handshake
             {
-                string txtChat = msg.Substring(5);
-                Console.WriteLine("Received: {0}", txtChat);
+                //Get UDP EndPoint
+                string UDPEndPoint = msg.Substring(6);
+                string[] parts = UDPEndPoint.Split(',');
+                IPAddress ip = IPAddress.Parse(parts[0]);
+                IPEndPoint newEP = new IPEndPoint(ip, int.Parse(parts[1]));
+                if (!UDPEndPoints.Contains(newEP))
+                {
+                    UDPEndPoints.Add(newEP);
+                }
 
-                byte[] send = Encoding.UTF8.GetBytes(txtChat);
+                //Send their player number
+                int playerNum = connectedClients.Count; //We need to ensure the client sends their first TCP packet before the next client connects.
+                string playerNumberString = "PN: " + playerNum;
+                byte[] send = Encoding.UTF8.GetBytes(playerNumberString);
+                client.BeginSend(send, 0, send.Length, 0, new AsyncCallback(SendTCPCallback), client);
+
+                Console.WriteLine("Received handshake from {0}, granted player {1}", client.RemoteEndPoint.ToString(), playerNum.ToString());
+            }
+            else if (msg.Substring(0, 5) == "msg: ")
+            {
+                string txtChat = msg.Substring(6);
+                Console.WriteLine("Received message \"{0}\" from {1}", txtChat, client.RemoteEndPoint.ToString());
+
+                byte[] send = Encoding.UTF8.GetBytes(msg);
 
                 foreach (Socket connectedClient in connectedClients)
                 {
@@ -71,12 +92,16 @@ namespace MidtermServer
                         continue;
                     }
                     connectedClient.BeginSend(send, 0, send.Length, 0, new AsyncCallback(SendTCPCallback), connectedClient);
+                    Console.WriteLine("Sent message \"{0}\" to {1}", txtChat, connectedClient.RemoteEndPoint.ToString());
                 }
             }
             else if (msg == "quit")
             {
+                Console.WriteLine("Disconnecting client: {0}", client.RemoteEndPoint.ToString());
                 connectedClients.Remove(client);
                 client.Close();
+                byte[] send = Encoding.UTF8.GetBytes("quit");
+                connectedClients[0].BeginSend(send, 0, send.Length, 0, new AsyncCallback(SendTCPCallback), connectedClients[0]);
                 return;
             }
             else
@@ -97,14 +122,14 @@ namespace MidtermServer
             pos = new float[rec / 4];
             Buffer.BlockCopy(data, 0, pos, 0, rec);
 
-            Console.WriteLine("Received X:" + pos[0] + " Y:" + pos[1] + " Z:" + pos[2]);
+            Console.WriteLine("Received Player: " + pos[0] + "X:" + pos[1] + " Y:" + pos[2] + " Z:" + pos[3]);
 
             byte[] send = new byte[pos.Length * sizeof(float)];
             Buffer.BlockCopy(pos, 0, send, 0, send.Length);
             
-            foreach (Socket connectedClient in connectedClients)
+            foreach (IPEndPoint ipep in UDPEndPoints)
             {
-                UDPserver.BeginSendTo(send, 0, send.Length, 0, connectedClient.RemoteEndPoint, SendUDPCallback, connectedClient.RemoteEndPoint);
+                UDPserver.BeginSendTo(send, 0, send.Length, 0, ipep, SendUDPCallback, ipep);
             }
             
             UDPserver.BeginReceive(UDPbuffer, 0, UDPbuffer.Length, 0, ReceiveUDPCallback, 0);
