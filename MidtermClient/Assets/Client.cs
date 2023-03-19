@@ -51,37 +51,35 @@ public class Client : MonoBehaviour
 
             validationText.text = "Valid IP! Connecting...";
 
+            //Connect through TCP
             socTcp.Connect(ip, 8888);
 
+            //Stop showing the IP entry canvas, start showing chat, let the player move
             myCube.GetComponent<cube>().SetMoveable(true);
             joiningCanvas.SetActive(false);
             chatCanvas.SetActive(true);
 
+            //Set up the remote endpoint
             remoteEP = new IPEndPoint(ip, 8889);
 
             socUdp = new Socket(AddressFamily.InterNetwork,
                 SocketType.Dgram, ProtocolType.Udp);
 
+            //Connect through UDP
             socUdp.Connect(remoteEP);
 
-            //Debug.Log("UDP Endpoint: " + socUdp.LocalEndPoint.ToString());
-
+            //Send the endpoint data to the server, so they can send UDP messages back
             SendMsg("UDP: " + socUdp.LocalEndPoint.ToString());
 
+            //Begin to receive on both sockets
             socTcp.BeginReceive(inBufferTcp, 0, inBufferTcp.Length, 0, new AsyncCallback(ReceiveCallback), socTcp);
             socUdp.BeginReceive(inBufferUdp, 0, inBufferUdp.Length, 0, new AsyncCallback(ReceiveCallbackUdp), socUdp);
-
-
         }
     }
-
 
     // Start is called before the first frame update
     void Start()
     {
-        //myCube = gameObject;
-        //StartClient();
-
         chatBehaviour = chatCanvas.GetComponentInChildren<ChatBoxBehaviour>();
     }
 
@@ -96,6 +94,7 @@ public class Client : MonoBehaviour
         {
             currentTimer = 0f;
 
+            //Create the buffer
             pos = new float[] { playerNum, myCube.transform.position.x, myCube.transform.position.y, myCube.transform.position.z };
             bpos = new byte[pos.Length * 4];
             Buffer.BlockCopy(pos, 0, bpos, 0, bpos.Length);
@@ -106,12 +105,11 @@ public class Client : MonoBehaviour
                 "   Y: " + myCube.transform.position.y +
                 "   Z: " + myCube.transform.position.z);
 
+            //Send the buffer through UDP
             socUdp.SendTo(bpos, remoteEP);
         }
 
         prevPos = myCube.transform.position;
-
-        //Debug.Log(socUdp.LocalEndPoint.ToString());
     }
 
     private void ReceiveCallback(IAsyncResult result)
@@ -126,27 +124,36 @@ public class Client : MonoBehaviour
 
         string msg = Encoding.ASCII.GetString(data);
 
+        //If we are receiving the player number
         if (msg.Length >= 5 && msg.Substring(0, 4).Equals("PN: "))
         {
+            //Set the player number
             playerNum = int.Parse(msg.Substring(4));
 
             Debug.Log("I am player: " + playerNum);
 
+            //Begin receiving again
             socTcp.BeginReceive(inBufferTcp, 0, inBufferTcp.Length, 0, new AsyncCallback(ReceiveCallback), socTcp);
         }
 
+        //If we are receiving a chat message
         else if (msg.Length >= 5 && msg.Substring(0, 5).Equals("msg: "))
         {
             Debug.Log("Message received: " + msg.Substring(5, msg.Length - 6));
 
+            //Queue up the message to be displayed
+            //Note: messages are received in the format "{message}{player number of client which sent message}"
+            //So we create the message to be displayed in the chat box as "From Player {playerNumber}: {message}" 
             chatBehaviour.QueueMessage("From Player " + msg[msg.Length - 1] + ": " + msg.Substring(5, msg.Length - 6));
 
+            //Begin receiving again
             socTcp.BeginReceive(inBufferTcp, 0, inBufferTcp.Length, 0, new AsyncCallback(ReceiveCallback), socTcp);
         }
 
+        //If a player has quit
         else if (msg.Length >= 6 && msg.Substring(0, 6).Equals("quit: "))
         {
-            //Logic for player quitting
+            //Send a chat message saying the player has quit
             chatBehaviour.QueueMessage("***Player " + msg.Substring(6) + " has quit***");
         }
 
@@ -166,9 +173,11 @@ public class Client : MonoBehaviour
 
         Debug.Log("Recv (playerNum, x, y, z): (" + pos[0] + ", " + pos[1] + ", " + pos[2] + ", " + pos[3] + ")");
 
+        //If the position data we have received isn't our own, then set the other player's cube to the position received
         if (pos[0] != playerNum)
             p2Cube.transform.position = new Vector3(pos[1], pos[2], pos[3]);
 
+        //Begin receiving again
         socUdp.BeginReceive(inBufferUdp, 0, inBufferUdp.Length, 0, new AsyncCallback(ReceiveCallbackUdp), socUdp);
     }
 
@@ -189,12 +198,14 @@ public class Client : MonoBehaviour
 
     void OnApplicationQuit()
     {
+        //Send a message saying we have quit if the app has quit
         if (socTcp.Connected)
             SendMsg("quit: " + playerNum);
     }
 
     void OnDestroy()
     {
+        //Send a message saying we have quit if the client has been destroyed
         if (socTcp.Connected)
             SendMsg("quit: " + playerNum);
     }

@@ -38,6 +38,7 @@ public class ChatBoxBehaviour : MonoBehaviour
     {
         showingChat = !showingChat;
 
+        //Show the chat
         if (showingChat)
         {
             contentSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
@@ -45,6 +46,7 @@ public class ChatBoxBehaviour : MonoBehaviour
             showHideText.text = "Hide Chat";
         }
 
+        //Hide the chat
         else
         {
             contentSizeFitter.verticalFit = ContentSizeFitter.FitMode.MinSize;
@@ -55,15 +57,15 @@ public class ChatBoxBehaviour : MonoBehaviour
 
     public void SetMessage(string message)
     {
-        //Debug.Log(message);
-
         this.message = message;
     }
 
+    //For showing messages that this client has sent
     public void ShowMessage()
     {
         if (message != "")
         {
+            //Create a new message object, place it into the canvas
             GameObject clone = Instantiate(newMessagePrefab);
             clone.transform.SetParent(messageParentPanel);
             clone.transform.SetSiblingIndex(messageParentPanel.childCount - 2);
@@ -76,10 +78,12 @@ public class ChatBoxBehaviour : MonoBehaviour
             Debug.Log("Message is blank");
     }
 
+    //For showing messages this client has received
     public void ShowReceivedMessage()
     {
         if (message != "")
         {
+            //Create a new message object, place it into the canvas
             GameObject clone = Instantiate(newMessagePrefab);
             clone.transform.SetParent(messageParentPanel);
             clone.transform.SetSiblingIndex(messageParentPanel.childCount - 2);
@@ -90,6 +94,9 @@ public class ChatBoxBehaviour : MonoBehaviour
             Debug.Log("Message is blank");
     }
 
+    //For queueing up messages to be displayed
+    //This is since we cannot instantiate within a callback (must be on the main thread),
+    //so instead we queue messages and instantiate them afterwards within Update()
     public void QueueMessage(string msg)
     {
         messageQueue.Enqueue(msg);
