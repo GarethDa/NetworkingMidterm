@@ -36,7 +36,7 @@ namespace MidtermServer
             Console.WriteLine("Waiting for connections...");
 
             TCPserver.BeginAccept(new AsyncCallback(AcceptTCPCallback), null);
-            UDPserver.BeginReceive(UDPbuffer, 0, UDPbuffer.Length, 0, ReceiveUDPCallback, 0);
+            UDPserver.BeginReceive(UDPbuffer, 0, UDPbuffer.Length, 0, ReceiveUDPCallback, UDPserver);
         }
 
         static void AcceptTCPCallback(IAsyncResult result)
@@ -44,7 +44,7 @@ namespace MidtermServer
             Socket client = TCPserver.EndAccept(result);
             connectedClients.Add(client);
             Console.WriteLine("Client connected! IP: {0}", client.RemoteEndPoint.ToString());
-
+            
             client.BeginReceive(TCPbuffer, 0, TCPbuffer.Length, 0, new AsyncCallback(ReceiveTCPCallback), client);
             TCPserver.BeginAccept(new AsyncCallback(AcceptTCPCallback), null);
         }
@@ -58,10 +58,10 @@ namespace MidtermServer
             Array.Copy(TCPbuffer, data, rec);
             string msg = Encoding.ASCII.GetString(data);
 
-            if(msg.Substring(0, 5) == "UDP: ") //Handshake
+            if(msg.Length >= 5 && msg.Substring(0, 5) == "UDP: ") //Handshake
             {
                 //Get UDP EndPoint
-                string UDPEndPoint = msg.Substring(6);
+                string UDPEndPoint = msg.Substring(5);
                 string[] parts = UDPEndPoint.Split(',');
                 IPAddress ip = IPAddress.Parse(parts[0]);
                 IPEndPoint newEP = new IPEndPoint(ip, int.Parse(parts[1]));
@@ -78,9 +78,9 @@ namespace MidtermServer
 
                 Console.WriteLine("Received handshake from {0}, granted player {1}", client.RemoteEndPoint.ToString(), playerNum.ToString());
             }
-            else if (msg.Substring(0, 5) == "msg: ")
+            else if (msg.Length >= 5 && msg.Substring(0, 5) == "msg: ")
             {
-                string txtChat = msg.Substring(6);
+                string txtChat = msg.Substring(5);
                 Console.WriteLine("Received message \"{0}\" from {1}", txtChat, client.RemoteEndPoint.ToString());
 
                 byte[] send = Encoding.UTF8.GetBytes(msg);
@@ -126,13 +126,14 @@ namespace MidtermServer
 
             byte[] send = new byte[pos.Length * sizeof(float)];
             Buffer.BlockCopy(pos, 0, send, 0, send.Length);
-            
-            foreach (IPEndPoint ipep in UDPEndPoints)
+
+            foreach (EndPoint ipep in UDPEndPoints)
             {
                 UDPserver.BeginSendTo(send, 0, send.Length, 0, ipep, SendUDPCallback, ipep);
+
+                //UDPserver.SendTo(send, ipep.RemoteEndPoint);
             }
-            
-            UDPserver.BeginReceive(UDPbuffer, 0, UDPbuffer.Length, 0, ReceiveUDPCallback, 0);
+                UDPserver.BeginReceive(UDPbuffer, 0, UDPbuffer.Length, 0, ReceiveUDPCallback, UDPserver);
         }
 
         private static void SendTCPCallback(IAsyncResult result)
