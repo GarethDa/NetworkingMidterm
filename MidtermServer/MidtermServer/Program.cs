@@ -124,7 +124,7 @@ namespace MidtermServer
             pos = new float[rec / 4];
             Buffer.BlockCopy(data, 0, pos, 0, rec);
 
-            Console.WriteLine("Received Player: " + pos[0] + "X:" + pos[1] + " Y:" + pos[2] + " Z:" + pos[3]);
+            Console.WriteLine("Received Player: " + pos[0] + " X:" + pos[1] + " Y:" + pos[2] + " Z:" + pos[3]);
 
             byte[] send = new byte[pos.Length * sizeof(float)];
             Buffer.BlockCopy(pos, 0, send, 0, send.Length);
@@ -133,7 +133,8 @@ namespace MidtermServer
             {
                 UDPserver.BeginSendTo(send, 0, send.Length, 0, ipep, SendUDPCallback, UDPserver);
             }
-                UDPserver.BeginReceive(UDPbuffer, 0, UDPbuffer.Length, 0, ReceiveUDPCallback, UDPserver);
+
+            UDPserver.BeginReceive(UDPbuffer, 0, UDPbuffer.Length, 0, ReceiveUDPCallback, UDPserver);
         }
 
         private static void SendTCPCallback(IAsyncResult result)
