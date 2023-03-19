@@ -62,7 +62,7 @@ namespace MidtermServer
             {
                 //Get UDP EndPoint
                 string UDPEndPoint = msg.Substring(5);
-                string[] parts = UDPEndPoint.Split(',');
+                string[] parts = UDPEndPoint.Split(':');
                 IPAddress ip = IPAddress.Parse(parts[0]);
                 IPEndPoint newEP = new IPEndPoint(ip, int.Parse(parts[1]));
                 if (!UDPEndPoints.Contains(newEP))
@@ -80,7 +80,7 @@ namespace MidtermServer
             }
             else if (msg.Length >= 5 && msg.Substring(0, 5) == "msg: ")
             {
-                string txtChat = msg.Substring(5);
+                string txtChat = msg.Substring(5, msg.Length - 6);
                 Console.WriteLine("Received message \"{0}\" from {1}", txtChat, client.RemoteEndPoint.ToString());
 
                 byte[] send = Encoding.UTF8.GetBytes(msg);
@@ -95,13 +95,15 @@ namespace MidtermServer
                     Console.WriteLine("Sent message \"{0}\" to {1}", txtChat, connectedClient.RemoteEndPoint.ToString());
                 }
             }
-            else if (msg == "quit")
+            else if (msg.Length >= 6 && msg.Substring(0, 6) == "quit: ")
             {
-                Console.WriteLine("Disconnecting client: {0}", client.RemoteEndPoint.ToString());
+                Console.WriteLine("Disconnecting client: {0}, Player Number: {1}", client.RemoteEndPoint.ToString(), msg.Substring(6));
                 connectedClients.Remove(client);
                 client.Close();
-                byte[] send = Encoding.UTF8.GetBytes("quit");
-                connectedClients[0].BeginSend(send, 0, send.Length, 0, new AsyncCallback(SendTCPCallback), connectedClients[0]);
+                byte[] send = Encoding.UTF8.GetBytes(msg);
+
+                if(connectedClients.Count > 0)
+                    connectedClients[0].BeginSend(send, 0, send.Length, 0, new AsyncCallback(SendTCPCallback), connectedClients[0]);
                 return;
             }
             else
@@ -127,11 +129,9 @@ namespace MidtermServer
             byte[] send = new byte[pos.Length * sizeof(float)];
             Buffer.BlockCopy(pos, 0, send, 0, send.Length);
 
-            foreach (EndPoint ipep in UDPEndPoints)
+            foreach (IPEndPoint ipep in UDPEndPoints)
             {
-                UDPserver.BeginSendTo(send, 0, send.Length, 0, ipep, SendUDPCallback, ipep);
-
-                //UDPserver.SendTo(send, ipep.RemoteEndPoint);
+                UDPserver.BeginSendTo(send, 0, send.Length, 0, ipep, SendUDPCallback, UDPserver);
             }
                 UDPserver.BeginReceive(UDPbuffer, 0, UDPbuffer.Length, 0, ReceiveUDPCallback, UDPserver);
         }

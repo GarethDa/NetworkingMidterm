@@ -69,7 +69,7 @@ public class ChatBoxBehaviour : MonoBehaviour
             clone.transform.SetSiblingIndex(messageParentPanel.childCount - 2);
             clone.GetComponent<MessageBehaviour>().ShowMessage(message);
 
-            userClient.SendMsg("msg: " + message);
+            userClient.SendMsg("msg: " + message + userClient.GetPlayerNum());
         }
 
         else
@@ -92,7 +92,6 @@ public class ChatBoxBehaviour : MonoBehaviour
 
     public void QueueMessage(string msg)
     {
-        Debug.Log("queued message");
         messageQueue.Enqueue(msg);
     }
 }

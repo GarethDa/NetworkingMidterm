@@ -44,7 +44,7 @@ public class Client : MonoBehaviour
 
     public void StartClient()
     {
-        try
+        //try
         {
             socTcp = new Socket(AddressFamily.InterNetwork,
                 SocketType.Stream, ProtocolType.Tcp);
@@ -62,15 +62,16 @@ public class Client : MonoBehaviour
             socUdp = new Socket(AddressFamily.InterNetwork,
                 SocketType.Dgram, ProtocolType.Udp);
 
+            socUdp.Connect(remoteEP);
+
             //Debug.Log("UDP Endpoint: " + socUdp.LocalEndPoint.ToString());
+
+            SendMsg("UDP: " + socUdp.LocalEndPoint.ToString());
 
             socTcp.BeginReceive(inBufferTcp, 0, inBufferTcp.Length, 0, new AsyncCallback(ReceiveCallback), socTcp);
             socUdp.BeginReceive(inBufferUdp, 0, inBufferUdp.Length, 0, new AsyncCallback(ReceiveCallbackUdp), socUdp);
 
-        } catch (Exception e)
-        {
-            Debug.Log(e.ToString());
-            validationText.text = "Invalid IP!";
+
         }
     }
 
@@ -110,6 +111,7 @@ public class Client : MonoBehaviour
 
         prevPos = myCube.transform.position;
 
+        //Debug.Log(socUdp.LocalEndPoint.ToString());
     }
 
     private void ReceiveCallback(IAsyncResult result)
@@ -124,26 +126,34 @@ public class Client : MonoBehaviour
 
         string msg = Encoding.ASCII.GetString(data);
 
-        if (msg.Substring(0, 4).Equals("PN: "))
+        if (msg.Length >= 5 && msg.Substring(0, 4).Equals("PN: "))
         {
             playerNum = int.Parse(msg.Substring(4));
 
             Debug.Log("I am player: " + playerNum);
-        }
-
-        else if (msg.Substring(0, 5).Equals("msg: "))
-        {
-            Debug.Log("Message received: " + msg.Substring(5));
-
-            chatBehaviour.QueueMessage(msg.Substring(5));
 
             socTcp.BeginReceive(inBufferTcp, 0, inBufferTcp.Length, 0, new AsyncCallback(ReceiveCallback), socTcp);
         }
-        
-        else
+
+        else if (msg.Length >= 5 && msg.Substring(0, 5).Equals("msg: "))
+        {
+            Debug.Log("Message received: " + msg.Substring(5, msg.Length - 6));
+
+            chatBehaviour.QueueMessage("From Player " + msg[msg.Length - 1] + ": " + msg.Substring(5, msg.Length - 6));
+
+            socTcp.BeginReceive(inBufferTcp, 0, inBufferTcp.Length, 0, new AsyncCallback(ReceiveCallback), socTcp);
+        }
+
+        else if (msg.Length >= 6 && msg.Substring(0, 6).Equals("quit: "))
         {
             //Logic for player quitting
+            chatBehaviour.QueueMessage("***Player " + msg.Substring(6) + " has quit***");
         }
+
+        else
+            Debug.Log("Invalid info received!!!!");
+
+
     }
     private void ReceiveCallbackUdp(IAsyncResult result)
     {
@@ -156,10 +166,10 @@ public class Client : MonoBehaviour
 
         Debug.Log("Recv (playerNum, x, y, z): (" + pos[0] + ", " + pos[1] + ", " + pos[2] + ", " + pos[3] + ")");
 
-        
-        p2Cube.transform.position = new Vector3(pos[1], pos[2], pos[3]);
+        if (pos[0] != playerNum)
+            p2Cube.transform.position = new Vector3(pos[1], pos[2], pos[3]);
 
-        socUdp.BeginReceive(inBufferUdp, 0, inBufferUdp.Length, 0, new AsyncCallback(ReceiveCallback), socUdp);
+        socUdp.BeginReceive(inBufferUdp, 0, inBufferUdp.Length, 0, new AsyncCallback(ReceiveCallbackUdp), socUdp);
     }
 
     public void SendMsg(string msg)
@@ -180,12 +190,17 @@ public class Client : MonoBehaviour
     void OnApplicationQuit()
     {
         if (socTcp.Connected)
-            SendMsg("quit");
+            SendMsg("quit: " + playerNum);
     }
 
     void OnDestroy()
     {
         if (socTcp.Connected)
-            SendMsg("quit");
+            SendMsg("quit: " + playerNum);
+    }
+
+    public int GetPlayerNum()
+    {
+        return playerNum;
     }
 }

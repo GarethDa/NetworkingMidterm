@@ -330,7 +330,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 144.79375, y: -13.5}
+  m_AnchoredPosition: {x: 277.74014, y: -13.5}
   m_SizeDelta: {x: 39.4803, y: 27}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &228215995
@@ -510,8 +510,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 3, y: -48}
-  m_SizeDelta: {x: 0, y: 30}
+  m_AnchoredPosition: {x: 150, y: -48}
+  m_SizeDelta: {x: 300, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &238026116
 MonoBehaviour:
@@ -2109,8 +2109,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 354.55853, y: -128.26483}
-  m_SizeDelta: {x: -709.1172, y: -324.8}
+  m_AnchoredPosition: {x: 261.98, y: -128.26483}
+  m_SizeDelta: {x: -751, y: -453}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1222807416
 MonoBehaviour:
@@ -2152,11 +2152,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Padding:
-    m_Left: 3
-    m_Right: 3
+    m_Left: 0
+    m_Right: 0
     m_Top: 3
     m_Bottom: 3
-  m_ChildAlignment: 0
+  m_ChildAlignment: 4
   m_Spacing: 0
   m_ChildForceExpandWidth: 0
   m_ChildForceExpandHeight: 0
@@ -3006,8 +3006,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 85.64142, y: -18}
-  m_SizeDelta: {x: 165.28284, y: 30}
+  m_AnchoredPosition: {x: 150, y: -18}
+  m_SizeDelta: {x: 167.53387, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1712349899
 MonoBehaviour:
@@ -3231,8 +3231,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 61.5268, y: -13.5}
-  m_SizeDelta: {x: 117.0536, y: 27}
+  m_AnchoredPosition: {x: 128, y: -13.5}
+  m_SizeDelta: {x: 250, y: 27}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1839692151
 MonoBehaviour:
