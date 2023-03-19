@@ -13,32 +13,65 @@ using TMPro;
 public class Client : MonoBehaviour
 {
     [SerializeField] TMP_Text validationText;
+    [SerializeField] GameObject joiningCanvas;
+    [SerializeField] GameObject chatCanvas;
+    [SerializeField] GameObject p2Cube;
+
+    ChatBoxBehaviour chatBehaviour;
 
     public GameObject myCube;
-    private static Socket clientSoc;
+    private Socket socTcp;
+    private Socket socUdp;
 
-    private static byte[] bpos;
-    private static float[] pos;
+    private byte[] bpos;
+    private float[] pos;
+
+    private byte[] outBufferTcp = new byte[512];
+    private byte[] inBufferTcp = new byte[512];
+
+    private byte[] outBufferUdp = new byte[512];
+    private byte[] inBufferUdp = new byte[512];
+
+    private IPEndPoint remoteEP;
 
     Vector3 prevPos = new Vector3(0f, 0f, 0f);
 
     float currentTimer = 0f;
 
-    IPAddress ip = IPAddress.Parse("0.0.0.0");
+    private IPAddress ip;
 
-    public static void StartClient()
+    int playerNum;
+
+    public void StartClient()
     {
-        try
+        //try
         {
-            clientSoc = new Socket(AddressFamily.InterNetwork,
+            socTcp = new Socket(AddressFamily.InterNetwork,
                 SocketType.Stream, ProtocolType.Tcp);
 
-            clientSoc.Connect(IPAddress.Parse("127.0.0.1"), 8888);
-            Debug.Log("Connected to server");
+            validationText.text = "Valid IP! Connecting...";
 
-        } catch (Exception e)
-        {
-            Debug.Log(e.ToString());
+            socTcp.Connect(ip, 8888);
+
+            myCube.GetComponent<cube>().SetMoveable(true);
+            joiningCanvas.SetActive(false);
+            chatCanvas.SetActive(true);
+
+            remoteEP = new IPEndPoint(ip, 8889);
+
+            socUdp = new Socket(AddressFamily.InterNetwork,
+                SocketType.Dgram, ProtocolType.Udp);
+
+            socUdp.Connect(remoteEP);
+
+            //Debug.Log("UDP Endpoint: " + socUdp.LocalEndPoint.ToString());
+
+            SendMsg("UDP: " + socUdp.LocalEndPoint.ToString());
+
+            socTcp.BeginReceive(inBufferTcp, 0, inBufferTcp.Length, 0, new AsyncCallback(ReceiveCallback), socTcp);
+            socUdp.BeginReceive(inBufferUdp, 0, inBufferUdp.Length, 0, new AsyncCallback(ReceiveCallbackUdp), socUdp);
+
+
         }
     }
 
@@ -46,8 +79,10 @@ public class Client : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        myCube = gameObject;
-        StartClient();
+        //myCube = gameObject;
+        //StartClient();
+
+        chatBehaviour = chatCanvas.GetComponentInChildren<ChatBoxBehaviour>();
     }
 
     // Update is called once per frame
@@ -61,20 +96,87 @@ public class Client : MonoBehaviour
         {
             currentTimer = 0f;
 
-            pos = new float[] { myCube.transform.position.x, myCube.transform.position.y, myCube.transform.position.z };
+            pos = new float[] { playerNum, myCube.transform.position.x, myCube.transform.position.y, myCube.transform.position.z };
             bpos = new byte[pos.Length * 4];
             Buffer.BlockCopy(pos, 0, bpos, 0, bpos.Length);
 
             Debug.Log("Sending coordinates to server -" +
+                "   PlayerNum: " + playerNum +
                 "   X: " + myCube.transform.position.x +
                 "   Y: " + myCube.transform.position.y +
                 "   Z: " + myCube.transform.position.z);
 
-            clientSoc.Send(bpos);
+            socUdp.SendTo(bpos, remoteEP);
         }
 
         prevPos = myCube.transform.position;
 
+        //Debug.Log(socUdp.LocalEndPoint.ToString());
+    }
+
+    private void ReceiveCallback(IAsyncResult result)
+    {
+        Socket socket = (Socket)result.AsyncState;
+
+        int rec = socket.EndReceive(result);
+
+        byte[] data = new byte[rec];
+
+        Array.Copy(inBufferTcp, data, rec);
+
+        string msg = Encoding.ASCII.GetString(data);
+
+        if (msg.Length >= 5 && msg.Substring(0, 4).Equals("PN: "))
+        {
+            playerNum = int.Parse(msg.Substring(4));
+
+            Debug.Log("I am player: " + playerNum);
+
+            socTcp.BeginReceive(inBufferTcp, 0, inBufferTcp.Length, 0, new AsyncCallback(ReceiveCallback), socTcp);
+        }
+
+        else if (msg.Length >= 5 && msg.Substring(0, 5).Equals("msg: "))
+        {
+            Debug.Log("Message received: " + msg.Substring(5, msg.Length - 6));
+
+            chatBehaviour.QueueMessage("From Player " + msg[msg.Length - 1] + ": " + msg.Substring(5, msg.Length - 6));
+
+            socTcp.BeginReceive(inBufferTcp, 0, inBufferTcp.Length, 0, new AsyncCallback(ReceiveCallback), socTcp);
+        }
+
+        else if (msg.Length >= 6 && msg.Substring(0, 6).Equals("quit: "))
+        {
+            //Logic for player quitting
+            chatBehaviour.QueueMessage("***Player " + msg.Substring(6) + " has quit***");
+        }
+
+        else
+            Debug.Log("Invalid info received!!!!");
+
+
+    }
+    private void ReceiveCallbackUdp(IAsyncResult result)
+    {
+        Socket socket = (Socket)result.AsyncState;
+
+        int rec = socket.EndReceive(result);
+
+        pos = new float[rec / 4];
+        Buffer.BlockCopy(inBufferUdp, 0, pos, 0, rec);
+
+        Debug.Log("Recv (playerNum, x, y, z): (" + pos[0] + ", " + pos[1] + ", " + pos[2] + ", " + pos[3] + ")");
+
+        if (pos[0] != playerNum)
+            p2Cube.transform.position = new Vector3(pos[1], pos[2], pos[3]);
+
+        socUdp.BeginReceive(inBufferUdp, 0, inBufferUdp.Length, 0, new AsyncCallback(ReceiveCallbackUdp), socUdp);
+    }
+
+    public void SendMsg(string msg)
+    {
+        outBufferTcp = Encoding.ASCII.GetBytes(msg);
+
+        socTcp.Send(outBufferTcp);
     }
 
     public void SetIP(string inIP)
@@ -82,15 +184,23 @@ public class Client : MonoBehaviour
         Debug.Log("Here! IP = " + inIP);
         ip = IPAddress.Parse(inIP);
 
-        try
-        {
-            clientSoc.Connect(IPAddress.Parse("127.0.0.1"), 8888);
-        }
+        StartClient();
+    }
 
-        catch (Exception e)
-        {
-            Debug.Log(e.ToString());
-        }
+    void OnApplicationQuit()
+    {
+        if (socTcp.Connected)
+            SendMsg("quit: " + playerNum);
+    }
 
+    void OnDestroy()
+    {
+        if (socTcp.Connected)
+            SendMsg("quit: " + playerNum);
+    }
+
+    public int GetPlayerNum()
+    {
+        return playerNum;
     }
 }
