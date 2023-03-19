@@ -44,7 +44,7 @@ public class Client : MonoBehaviour
 
     public void StartClient()
     {
-        //try
+        try
         {
             socTcp = new Socket(AddressFamily.InterNetwork,
                 SocketType.Stream, ProtocolType.Tcp);
@@ -74,6 +74,10 @@ public class Client : MonoBehaviour
             //Begin to receive on both sockets
             socTcp.BeginReceive(inBufferTcp, 0, inBufferTcp.Length, 0, new AsyncCallback(ReceiveCallback), socTcp);
             socUdp.BeginReceive(inBufferUdp, 0, inBufferUdp.Length, 0, new AsyncCallback(ReceiveCallbackUdp), socUdp);
+        }
+        catch (Exception e)
+        {
+            validationText.text = "Invalid IP!";
         }
     }
 
